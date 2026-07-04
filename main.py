@@ -22,6 +22,8 @@ TILE_SIZE = 20
 CELL = TILE_SIZE + MARGIN
 WINDOW_SIZE = GRID_SIZE * CELL + MARGIN   # window is exactly as big as the grid
 MAX_CLICKS = 2
+CARDINAL_MOVE_COST  = 1
+DIAGNOL_MOVE_COST = 1.414
 
 # data structures
 grid = [[0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
@@ -43,7 +45,7 @@ def draw_board():
     path = []
     graph = {}
     count = 0
-    algo = check_user_input()
+    algo, heuristic = check_user_input()
     running = True
     while running:
         for event in pygame.event.get():
@@ -71,9 +73,9 @@ def draw_board():
                     path, total = dih(start, target, graph)
                     print(total)
                 elif algo == 'a*':
-                    path, total = a_star(start, target, graph)
+                    path, total = a_star(start, target, graph, heuristic)
                     print(total)
-
+                    
         screen.fill(DARK_BLUE)
         draw_path(screen, start, target, path)
         pygame.display.flip()
@@ -82,7 +84,9 @@ def draw_board():
 
 def check_user_input():
     algo = input('Select an algorithm to visualize (dijkstra or a*): ')
-    return algo
+    if algo == 'a*':
+        heuristic = input('Select a heuristic: (euclidean or octile): ')
+    return algo, heuristic
         
 
 # dijkstra
@@ -116,13 +120,13 @@ def dih(src, target, graph):
     return path, cost_list[target]
 
 # A*
-def a_star(src, target, graph):
+def a_star(src, target, graph, heuristic):
     g = {v: float('inf') for v in graph}
     g[src] = 0
 
     #f = g + h
     f = {v: float('inf') for v in graph}
-    f[src] = h(src, target)
+    f[src] = euc(src, target)
 
     pq = [(f[src],src)] #cost, vertex
     prev = {v: None for v in graph} 
@@ -142,7 +146,10 @@ def a_star(src, target, graph):
             new_g = g[vertex] + weight
             if new_g < g[neighbor]:
                 g[neighbor] = new_g
-                f[neighbor] = new_g + h(neighbor, target)
+                if heuristic == 'euclidean':
+                    f[neighbor] = new_g + euc(neighbor, target)
+                elif heuristic == 'octile':
+                    f[neighbor] = new_g + octile(neighbor, target)
                 prev[neighbor] = vertex
                 heapq.heappush(pq, (f[neighbor], neighbor))
     path = []
@@ -152,9 +159,13 @@ def a_star(src, target, graph):
   
 
 #Euclidean distance heurisitc
-def h(p, q):
+def euc(p, q):
     return math.dist(p, q)
 
+def octile(p, q):
+    x = abs(p[0] - q[0])
+    y = abs(p[1] - q[1])
+    return max(x, y) + (math.sqrt(2) - 1) * min(x, y)
 
 def rebuild_path(path, node, prev, cost, target):
     if cost[target] != float('inf'):
@@ -162,7 +173,6 @@ def rebuild_path(path, node, prev, cost, target):
             path.append(node)
             node = prev[node]
         path.reverse()
-
 
 
 def draw_path(screen, start, target, path):
